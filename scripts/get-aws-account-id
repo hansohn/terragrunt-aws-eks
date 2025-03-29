@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+account_id="unknown"
+
+if command -v aws &> /dev/null && command -v jq &> /dev/null; then
+  account_id=$(aws organizations list-accounts | jq -r ".Accounts[] | select(.Name == \"$1\") | .Id")
+fi
+
+echo "$account_id"
