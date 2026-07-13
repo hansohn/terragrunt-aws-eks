@@ -1,6 +1,6 @@
 SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := dev
 .DELETE_ON_ERROR:
 .SUFFIXES:
 
@@ -12,7 +12,10 @@ include $(PROJECT_PATH)/Makefile.*
 # main
 export UNAME_S ?= $(shell uname -s)
 
+# Skip the AWS_PROFILE default when aws-vault has provided credential env vars.
+ifndef AWS_ACCESS_KEY_ID
 export AWS_PROFILE ?= unknown
+endif
 export AWS_DEFAULT_REGION ?= us-west-2
 export REPO_NAME := $(shell basename ${PWD})
 
@@ -26,12 +29,18 @@ DOCKER_ARGS += --tty
 DOCKER_ARGS += --rm
 DOCKER_ARGS += --env AWS_PROFILE --env AWS_DEFAULT_REGION
 DOCKER_ARGS += --env REPO_NAME
+# Credential env vars (set by aws-vault). Forwarded only when present; when they
+# are absent the container falls back to AWS_PROFILE + the mounted ~/.aws, so
+# `make dev` works with or without aws-vault.
+DOCKER_ARGS += --env AWS_ACCESS_KEY_ID --env AWS_SECRET_ACCESS_KEY
+DOCKER_ARGS += --env AWS_SESSION_TOKEN --env AWS_REGION
 DOCKER_ARGS += --workdir /app
 DOCKER_ARGS += --volume ${PWD}:/app
 DOCKER_ARGS += --volume ${HOME}/.aws:/root/.aws
+# Persist the provider cache (image's .terraformrc plugin_cache_dir) across runs.
+DOCKER_ARGS += --volume ${HOME}/.terraform.d/plugin-cache:/opt/terraform/plugin-cache
 DOCKER_ARGS += --volume ${HOME}/.ssh/known_hosts:/root/.ssh/known_hosts
 DOCKER_ARGS += --volume ${HOME}/.gitconfig:/root/.gitconfig:ro
-DOCKER_ARGS += --volume ${HOME}/.netrc:/root/.netrc:ro
 DOCKER_ARGS += --pull $(DOCKER_PULL)
 
 SSH_AUTH_SOCK_MAGIC_PATH := /run/host-services/ssh-auth.sock
@@ -41,18 +50,16 @@ DOCKER_ARGS += --volume $(SSH_AUTH_SOCK_MAGIC_PATH):$(SSH_AUTH_SOCK_MAGIC_PATH)
 endif
 
 
-## Docker run local dev env
-docker/run: ENTRYPOINT ?= bash
+## Run local dev env
+dev: ENTRYPOINT ?= bash
 
-docker/run:
+dev:
 	docker run \
 		$(DOCKER_ARGS) \
 		$(DOCKER_IMAGE):$(DOCKER_TAG) \
 		$(ENTRYPOINT)
 
-## Docker docker/run alias
-docker: docker/run
-.PHONY: docker all
+.PHONY: dev
 
 CLEAN_DIRS  += .terraform .terragrunt-cache
 CLEAN_FILES += 'auto-*.tf' terraform.plan .terraform.lock.hcl
