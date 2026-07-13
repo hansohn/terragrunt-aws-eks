@@ -14,10 +14,6 @@
     <a href="https://github.com/hansohn/terragrunt-aws-eks/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/hansohn/terragrunt-aws-eks.svg?style=for-the-badge">
     </a>
-    <!-- LinkedIn -->
-    <a href="https://linkedin.com/in/ryanhansohn">
-      <img src="https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555">
-    </a>
   </p>
 </div>
 
