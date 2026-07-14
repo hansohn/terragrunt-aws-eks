@@ -12,183 +12,41 @@ include "root" {
 
 # Local expressions
 locals {
-  parent_dir          = get_parent_terragrunt_dir("terragrunt-common.hcl")
-  aws_account_id      = include.root.locals.aws_account_id
-  aws_account_name    = include.root.locals.aws_account_name
-  aws_region          = include.root.locals.aws_region
-  titled_account_name = join("", [for i in split("-", local.aws_account_name) : title(i)])
+  aws_region = include.root.locals.aws_region
+
+  name = "hansohn-dev-main"
+  cidr = "10.0.0.0/22"
+  azs  = ["us-west-2a", "us-west-2b", "us-west-2c", "us-west-2d"]
 }
 
 # Terraform source block
 terraform {
-  source = "tfr://registry.terraform.io/hansohn/vpc/aws?version=1.0.3"
+  # NOTE: verify/bump to the latest 5.x (Renovate tracks this).
+  source = "tfr://registry.terraform.io/terraform-aws-modules/vpc/aws?version=5.13.0"
 }
 
 # Variables utilized by terraform source
 inputs = {
-  region             = local.aws_region
-  availability_zones = ["us-west-2a", "us-west-2b", "us-west-2c", "us-west-2d"]
-  
-  namespace = "hansohn"
-  stage     = "dev"
-  name      = "main"
-  
-  cidr_block                       = "10.0.0.0/22"
-  enable_dns_support               = true
-  enable_dns_hostnames             = true
-  assign_generated_ipv6_cidr_block = true
-  enable_internet_gateway          = true
-  
-  enable_dynamic_subnets   = true
-  enable_public_network    = true
-  enable_protected_network = true
-  enable_private_network   = true
-  
-  default_network_acl_ingress = [
-    {
-      rule_no    = 100
-      action     = "allow"
-      from_port  = 0
-      to_port    = 0
-      protocol   = "-1"
-      cidr_block = "0.0.0.0/0"
-    },
-    {
-      rule_no         = 101
-      action          = "allow"
-      from_port       = 0
-      to_port         = 0
-      protocol        = "-1"
-      ipv6_cidr_block = "::/0"
-    },
-  ]
-  default_network_acl_egress = [
-    {
-      rule_no    = 100
-      action     = "allow"
-      from_port  = 0
-      to_port    = 0
-      protocol   = "-1"
-      cidr_block = "0.0.0.0/0"
-    },
-    {
-      rule_no         = 101
-      action          = "allow"
-      from_port       = 0
-      to_port         = 0
-      protocol        = "-1"
-      ipv6_cidr_block = "::/0"
-    },
-  ]
-  
-  public_ingress_acl_rules = [
-    {
-      rule_number = 100
-      rule_action = "allow"
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      cidr_block  = "0.0.0.0/0"
-    },
-    {
-      rule_number     = 101
-      rule_action     = "allow"
-      from_port       = 0
-      to_port         = 0
-      protocol        = "-1"
-      ipv6_cidr_block = "::/0"
-    },
-  ]
-  public_egress_acl_rules = [
-    {
-      rule_number = 100
-      rule_action = "allow"
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      cidr_block  = "0.0.0.0/0"
-    },
-    {
-      rule_number     = 101
-      rule_action     = "allow"
-      from_port       = 0
-      to_port         = 0
-      protocol        = "-1"
-      ipv6_cidr_block = "::/0"
-    },
-  ]
-  
-  protected_ingress_acl_rules = [
-    {
-      rule_number = 100
-      rule_action = "allow"
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      cidr_block  = "0.0.0.0/0"
-    },
-    {
-      rule_number     = 101
-      rule_action     = "allow"
-      from_port       = 0
-      to_port         = 0
-      protocol        = "-1"
-      ipv6_cidr_block = "::/0"
-    },
-  ]
-  protected_egress_acl_rules = [
-    {
-      rule_number = 100
-      rule_action = "allow"
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      cidr_block  = "0.0.0.0/0"
-    },
-    {
-      rule_number     = 101
-      rule_action     = "allow"
-      from_port       = 0
-      to_port         = 0
-      protocol        = "-1"
-      ipv6_cidr_block = "::/0"
-    },
-  ]
-  
-  private_ingress_acl_rules = [
-    {
-      rule_number = 100
-      rule_action = "allow"
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      cidr_block  = "0.0.0.0/0"
-    },
-    {
-      rule_number     = 101
-      rule_action     = "allow"
-      from_port       = 0
-      to_port         = 0
-      protocol        = "-1"
-      ipv6_cidr_block = "::/0"
-    },
-  ]
-  private_egress_acl_rules = [
-    {
-      rule_number = 100
-      rule_action = "allow"
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      cidr_block  = "0.0.0.0/0"
-    },
-    {
-      rule_number     = 101
-      rule_action     = "allow"
-      from_port       = 0
-      to_port         = 0
-      protocol        = "-1"
-      ipv6_cidr_block = "::/0"
-    },
-  ]
+  name = local.name
+  cidr = local.cidr
+  azs  = local.azs
+
+  # 10.0.0.0/22 carved into eight /25s: four private + four public.
+  private_subnets = ["10.0.0.0/25", "10.0.0.128/25", "10.0.1.0/25", "10.0.1.128/25"]
+  public_subnets  = ["10.0.2.0/25", "10.0.2.128/25", "10.0.3.0/25", "10.0.3.128/25"]
+
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  # Single NAT gateway shared across AZs (sandbox cost trade-off; not HA).
+  enable_nat_gateway = true
+  single_nat_gateway = true
+
+  # Subnet tags so EKS / AWS Load Balancer Controller can discover subnets.
+  public_subnet_tags = {
+    "kubernetes.io/role/elb" = 1
+  }
+  private_subnet_tags = {
+    "kubernetes.io/role/internal-elb" = 1
+  }
 }
