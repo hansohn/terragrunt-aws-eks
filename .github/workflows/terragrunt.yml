@@ -5,14 +5,19 @@ name: terragrunt
 on:
   push:
     branches:
-      - '*'
+      - '**'
     tags:
       - 'v?[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
 
 env:
-  TERRAGRUNT_WORKING_DIR: './deployments'
+  TG_WORKING_DIR: './deployments'
   TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform.d/plugin-cache
+
+# Private repos need actions:read for the Slack status action to query the run.
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   format:
@@ -22,10 +27,25 @@ jobs:
       image: hansohn/terraform-aws:latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Check terragrunt HCL
-        run: 'terragrunt hclfmt --terragrunt-check --terragrunt-diff'
+        run: 'terragrunt hcl format --check --diff'
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    container:
+      image: hansohn/terraform-aws:latest
+    needs: [ format ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # tflint ships with the AWS ruleset baked into the image
+      # (checksum-verified, no `tflint --init` / GITHUB_TOKEN required).
+      - name: TFLint
+        run: 'tflint --recursive'
 
   # validate:
   #   name: Validate
@@ -47,7 +67,7 @@ jobs:
   #         key: ${{ runner.os }}-terraform-plugin-cache-${{ hashFiles('**/.terraform.lock.hcl') }}
 
   #     - name: Validate
-  #       run: 'terragrunt run-all validate --backend=false'
+  #       run: 'terragrunt run --all validate -- -backend=false'
 
   # plan:
   #   name: Plan
@@ -69,7 +89,7 @@ jobs:
   #         key: ${{ runner.os }}-terraform-plugin-cache-${{ hashFiles('**/.terraform.lock.hcl') }}
 
   #     - name: Plan
-  #       run: 'terragrunt run-all plan'
+  #       run: 'terragrunt run --all plan'
 
   # deploy:
   #   name: Deploy
@@ -92,19 +112,19 @@ jobs:
   #         key: ${{ runner.os }}-terraform-plugin-cache-${{ hashFiles('**/.terraform.lock.hcl') }}
 
   #     - name: Deploy
-  #       run: 'terragrunt run-all apply'
+  #       run: 'terragrunt run --all apply'
 
   slack:
     name: Slack
     runs-on: ubuntu-latest
-    needs: [ format ]
+    needs: [ format, lint ]
     if: always()
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Slack Notification
-        uses: Gamesight/slack-workflow-status@master
+        uses: Gamesight/slack-workflow-status@v2.0.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_webhook_url: ${{ secrets.SLACK_WEBHOOK }}
