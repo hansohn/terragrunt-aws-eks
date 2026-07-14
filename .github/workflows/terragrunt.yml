@@ -27,7 +27,7 @@ jobs:
       image: hansohn/terraform-aws:latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Check terragrunt HCL
         run: 'terragrunt hcl format --check --diff'
@@ -40,7 +40,7 @@ jobs:
     needs: [ format ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # tflint ships with the AWS ruleset baked into the image
       # (checksum-verified, no `tflint --init` / GITHUB_TOKEN required).
@@ -121,7 +121,7 @@ jobs:
     if: always()
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Slack Notification
         uses: Gamesight/slack-workflow-status@v2.0.0
