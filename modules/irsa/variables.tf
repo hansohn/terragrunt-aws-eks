@@ -1,3 +1,7 @@
+################################################################################
+# Variables
+################################################################################
+
 variable "oidc_provider_arn" {
   description = "ARN of the EKS cluster OIDC provider (from the eks stack)."
   type        = string
