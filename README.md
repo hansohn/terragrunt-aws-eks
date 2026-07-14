@@ -17,23 +17,44 @@
   </p>
 </div>
 
-## :open_book: Usage
+## :open_book: Overview
 
-Welcome to the terragrunt-aws-eks repo!
+`terragrunt-aws-eks` stands up an Amazon EKS platform on AWS with
+[Terragrunt](https://terragrunt.gruntwork.io/). It is composed of small,
+single-purpose **stacks** — the network, the cluster, and workload IAM — that
+each source a community Terraform module and are wired together with Terragrunt
+dependencies. Applied in order, they take an environment from an empty account to
+a running EKS cluster with IRSA roles ready for platform components.
 
-Deployments live under `deployments/<namespace>/<account>/<region>/<stack>`, and
-that path is how Terragrunt locates each stack. `terragrunt-common.hcl` derives
-the namespace, account, region, and stack name from the path, then generates the
-S3 backend and AWS provider for each run.
+Everything is convention-driven: deployments live under
+`deployments/<namespace>/<account>/<region>/<stack>`, and that path is how
+Terragrunt locates each stack. `terragrunt-common.hcl` derives the namespace,
+account, region, and stack name from the path, then generates the S3 backend and
+AWS provider for every run.
 
-### Stacks
+## Stacks
 
-| Path | Source |
-| ---- | ------ |
-| `deployments/sandbox/us-west-2/vpc` | `tfr://registry.terraform.io/hansohn/vpc/aws` |
-| `deployments/sandbox/us-west-2/eks` | `terraform-aws-modules/eks/aws` |
+Applied in dependency order — each consumes the previous stack's outputs:
 
-### Authentication & state
+| Stack | Path | Module | Purpose |
+| ----- | ---- | ------ | ------- |
+| `vpc` | `deployments/sandbox/us-west-2/vpc` | `terraform-aws-modules/vpc/aws` | VPC with public/private subnets and a single NAT gateway |
+| `eks` | `deployments/sandbox/us-west-2/eks` | `terraform-aws-modules/eks/aws` (v21) | EKS cluster — Kubernetes 1.36 on AL2023 nodes — in the VPC's private subnets |
+| `irsa` | `deployments/sandbox/us-west-2/irsa` | `terraform-aws-modules/iam` (via `modules/irsa`) | IAM Roles for Service Accounts that trust the cluster OIDC provider |
+
+The dependency chain is `vpc → eks → irsa`: the `eks` stack reads `vpc_id` /
+`private_subnets` from `vpc`, and the `irsa` stack reads the cluster
+`oidc_provider_arn` from `eks` — both through Terragrunt `dependency` blocks
+(with `mock_outputs` so `plan`/`validate` run before upstreams are applied).
+
+### Local modules
+
+- **`modules/irsa`** — a thin `for_each` wrapper around
+  `terraform-aws-modules/iam//modules/iam-role-for-service-accounts` (that
+  submodule builds one role per call), letting the `irsa` stack declare several
+  roles from a single deployment.
+
+## Authentication & state
 
 `terragrunt-common.hcl` resolves the target account ID with
 `scripts/get-aws-account-id` (`aws sts get-caller-identity`) and assumes
@@ -47,17 +68,22 @@ locking via the `terraform-state-lock` DynamoDB table.
 > S3-native locking, and no `assume_role`. That change is tracked separately and
 > depends on the target account being bootstrapped.
 
-### Local dev
+## Local dev
 
 The `Makefile` runs Terragrunt inside the `hansohn/terraform-aws` container with
 your local AWS credentials mounted:
 
 ```bash
 AWS_PROFILE=sandbox make dev     # drop into the container
-# inside the container:
+# inside the container, from a stack directory:
 cd deployments/sandbox/us-west-2/vpc
 terragrunt plan
 ```
+
+## CI
+
+GitHub Actions (`.github/workflows/terragrunt.yml`) checks HCL formatting
+(`terragrunt hcl format`) and lints Terraform (`tflint`) on every push.
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
