@@ -1,11 +1,10 @@
 ################################################################################
-# IRSA - IAM Roles for Service Accounts
-#
+# Main
+################################################################################
+
 # terraform-aws-modules/iam's iam-role-for-service-accounts submodule builds a
 # single role (trust policy against the cluster OIDC provider + optional managed
 # policies). Instantiate it once per entry in var.roles to create several.
-################################################################################
-
 module "iam_role_for_service_accounts" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "~> 6.0"
